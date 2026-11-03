@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -114,9 +113,6 @@ fun ScrollWheel(enabled: Boolean, onScroll: (Float) -> Unit, modifier: Modifier 
                 style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
             )
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("↶  ↷", color = ink, fontSize = 18.sp)
-            Text("SCROLL", color = ink, fontSize = 9.sp, letterSpacing = 1.sp)
-        }
+        Text("↶  ↷", color = ink, fontSize = 18.sp)
     }
 }

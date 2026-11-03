@@ -116,7 +116,6 @@ private val Mint=Color(0xFFB8E6CC)
             drawLine(ink.copy(alpha=.5f),androidx.compose.ui.geometry.Offset(edge,size.height*.3f),androidx.compose.ui.geometry.Offset(edge,size.height*.7f),4.dp.toPx(),StrokeCap.Round)
             if(touching)drawCircle(ink.copy(alpha=.15f),35.dp.toPx(),androidx.compose.ui.geometry.Offset(lastX,lastY))
         }
-        Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Text(if(m.drag)"DRAG LOCKED" else if(m.connected||m.demo)"A LITTLE SPACE TO WANDER" else "READY WHEN YOU ARE",fontSize=10.sp,letterSpacing=2.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.height(10.dp));Text(if(m.demo)"${m.demoX.toInt()}   /   ${m.demoY.toInt()}" else if(m.connected)"Move at your own pace." else "Pair your computer to begin.",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         Box(Modifier.fillMaxSize().semantics{contentDescription="Trackpad. Swipe with one finger to move. Tap to click. Slide the ${if(m.leftHanded)"left" else "right"} edge to scroll. Use dedicated click and drag buttons below."}.pointerInteropFilter{e->
             if(!m.connected&&!m.demo)return@pointerInteropFilter false
             when(e.actionMasked){

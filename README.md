@@ -2,7 +2,7 @@
 
 A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + Jetpack Compose on your phone; Tauri 2 + a Rust TLS receiver on your desk. No account, browser tab, relay, clipboard sharing, telemetry, or internet dependency after installation.
 
-**Development builds: desktop 0.1.0, Android 0.1.2.** Android now uses a compact connection control and a larger trackpad, with the introductory headings removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
+**Development builds: desktop 0.1.0, Android 0.1.3.** Android now uses a compact connection control and a larger trackpad, with the introductory headings and visible trackpad text removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
 
 ## Install
 
