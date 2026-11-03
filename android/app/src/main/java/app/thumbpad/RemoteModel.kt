@@ -28,6 +28,7 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     var sensitivity by mutableFloatStateOf(storage.prefs.getFloat("sensitivity",1.4f))
     var acceleration by mutableFloatStateOf(storage.prefs.getFloat("acceleration",0.25f))
     var scrollSpeed by mutableFloatStateOf(storage.prefs.getFloat("scroll",1f))
+    var scrollWheel by mutableStateOf(storage.prefs.getBoolean("scroll_wheel",false))
     var natural by mutableStateOf(storage.prefs.getBoolean("natural",true))
     var haptics by mutableStateOf(storage.prefs.getBoolean("haptics",true))
     var tap by mutableStateOf(storage.prefs.getBoolean("tap",true))
@@ -55,7 +56,7 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     init {runCatching{connectivity.registerDefaultNetworkCallback(callback)}}
     fun startDiscovery(){foreground=true;discovery.start();if(resumeWanted&&!connected&&!demo)selected?.takeIf{it.token.isNotEmpty()}?.let{connect(it)}}
     fun stopDiscovery()=discovery.stop()
-    fun saveSettings(){storage.prefs.edit().putFloat("sensitivity",sensitivity).putFloat("acceleration",acceleration).putFloat("scroll",scrollSpeed).putBoolean("natural",natural).putBoolean("haptics",haptics).putBoolean("tap",tap).putBoolean("left",leftHanded).putBoolean("awake",awake).putBoolean("palm",palm).putBoolean("battery",batteryMode).putBoolean("horizontal",horizontal).putBoolean("extras",extraControls).apply()}
+    fun saveSettings(){storage.prefs.edit().putFloat("sensitivity",sensitivity).putFloat("acceleration",acceleration).putFloat("scroll",scrollSpeed).putBoolean("scroll_wheel",scrollWheel).putBoolean("natural",natural).putBoolean("haptics",haptics).putBoolean("tap",tap).putBoolean("left",leftHanded).putBoolean("awake",awake).putBoolean("palm",palm).putBoolean("battery",batteryMode).putBoolean("horizontal",horizontal).putBoolean("extras",extraControls).apply()}
     fun connect(c:Computer){resumeWanted=true;demo=false;drag=false;selected=c;transport.connect(c)}
     fun reconnect(){selected?.let{connect(it)}}
     fun pair(uri:String){runCatching{
@@ -74,5 +75,6 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     fun click(button:Int){if(button==0&&drag){lock();return};emit(2,button.toFloat(),1f);emit(2,button.toFloat(),0f)}
     fun lock(){if(!connected&&!demo)return;drag=!drag;emit(2,0f,if(drag)1f else 0f)}
     fun move(dx:Float,dy:Float,dt:Float){val (x,y)=pointerDelta(dx,dy,dt,sensitivity,acceleration,precise);emit(1,x,y)}
+    fun wheelScroll(delta:Float){if((connected||demo)&&delta.isFinite()&&delta!=0f)emit(3,0f,scrollDelta(delta,scrollSpeed,natural))}
     override fun onCleared(){disconnect();stopDiscovery();runCatching{connectivity.unregisterNetworkCallback(callback)}}
 }

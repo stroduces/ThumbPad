@@ -14,6 +14,8 @@ A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + 
 5. Compare the six-character code on both screens; approve your phone on the desktop. Swipe to move, tap to click, use the large left/right buttons, slide the marked side strip to scroll. **Drag lock** holds left down across swipes; tap **Left click** to release. **Precise** lowers sensitivity.
 6. Pair your other computer the same way. Tap the computer card to switch. Switching, backgrounding or disconnecting releases dragging. Returning to the app reconnects the last selected trusted computer during the same process lifetime; after a full restart select a saved computer.
 
+**Optional scroll wheel (Android 0.1.1):** open Settings (⚙), enable **Show scroll wheel**, then **Save & close**. Turn the ring with your thumb to scroll; lift and start another turn whenever needed. The wheel follows the left-handed layout and uses the existing scroll speed and natural-direction settings. Tapping its centre never clicks or moves the pointer. Screen readers also expose scroll-up/down actions. The desktop companion does not need an update.
+
 ### Windows 10/11, x64
 1. Run `dist/ThumbPad-Windows-Setup.exe`. This is a per-user NSIS installer with an uninstaller. It is unsigned; Windows may show publisher/reputation prompts. Verify the checksum against your build before deciding whether to install.
 2. Launch ThumbPad from Start. The window can close to the tray; open the tray menu to reopen, immediately disable control, or quit. **Start at login** is opt-in.

@@ -130,6 +130,14 @@ private val Mint=Color(0xFFB8E6CC)
                 MotionEvent.ACTION_CANCEL->{touching=false;m.emit(6);if(m.drag)m.lock()}
             };true
         })
+        if(m.scrollWheel){
+            val wheelSize=minOf(144.dp,maxWidth*.48f,(maxHeight-20.dp).coerceAtLeast(48.dp))
+            ScrollWheel(
+                enabled=m.connected||m.demo,
+                onScroll=m::wheelScroll,
+                modifier=Modifier.align(if(m.leftHanded)Alignment.BottomStart else Alignment.BottomEnd).padding(10.dp).size(wheelSize)
+            )
+        }
     }
 }
 @Composable private fun SettingToggle(label:String,checked:Boolean,onChange:(Boolean)->Unit){Row(Modifier.fillMaxWidth().heightIn(min=52.dp),verticalAlignment=Alignment.CenterVertically){Text(label,modifier=Modifier.weight(1f),fontSize=13.sp);Switch(checked=checked,onCheckedChange=onChange,modifier=Modifier.semantics{contentDescription=label})}}
@@ -154,6 +162,7 @@ private val Mint=Color(0xFFB8E6CC)
         Text("Sensitivity · ${"%.1f".format(m.sensitivity)}");Slider(value=m.sensitivity,onValueChange={m.sensitivity=it},valueRange=.3f..3f)
         Text("Acceleration");Slider(value=m.acceleration,onValueChange={m.acceleration=it},valueRange=0f..1f)
         Text("Scroll speed");Slider(value=m.scrollSpeed,onValueChange={m.scrollSpeed=it},valueRange=.2f..3f)
+        SettingToggle("Show scroll wheel",m.scrollWheel){m.scrollWheel=it}
         SettingToggle("Natural scrolling",m.natural){m.natural=it}
         SettingToggle("Horizontal scrolling",m.horizontal){m.horizontal=it}
         SettingToggle("Tap to click",m.tap){m.tap=it}
