@@ -84,7 +84,7 @@ private val Mint=Color(0xFFB8E6CC)
             Button(onClick={m.click(0);buzz()},enabled=m.connected||m.demo,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1.4f).height(68.dp)){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("Left click",fontSize=17.sp);if(m.drag)Text("Tap to release",fontSize=10.sp)}}
             OutlinedButton(onClick={m.click(1);buzz()},enabled=m.connected||m.demo,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(68.dp)){Text("Right click",fontSize=15.sp)}
         }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
+        if(m.navigationMediaControls)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
             TextButton(onClick={m.emit(4,0f);buzz()},enabled=m.connected||m.demo,modifier=Modifier.heightIn(min=48.dp)){Text("‹  Back")}
             TextButton(onClick={m.emit(4,2f);buzz()},enabled=m.connected||m.demo,modifier=Modifier.heightIn(min=48.dp)){Text("Ⅱ  Play / pause")}
             TextButton(onClick={m.emit(4,1f);buzz()},enabled=m.connected||m.demo,modifier=Modifier.heightIn(min=48.dp)){Text("Forward  ›")}
@@ -171,6 +171,7 @@ private val Mint=Color(0xFFB8E6CC)
         SettingToggle("Palm rejection",m.palm){m.palm=it}
         SettingToggle("Keep screen awake while connected",m.awake){m.awake=it}
         SettingToggle("Extra volume / keyboard controls",m.extraControls){m.extraControls=it}
+        SettingToggle("Show Back / Play / Forward",m.navigationMediaControls){m.navigationMediaControls=it}
         Text("No account. Encrypted local connection. Camera is used only to scan your desktop’s QR code.",fontSize=11.sp)
     }},confirmButton={TextButton(onClick=onDismiss){Text("Save & close")}})
 }

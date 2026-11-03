@@ -38,6 +38,7 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     var batteryMode by mutableStateOf(storage.prefs.getBoolean("battery",false))
     var horizontal by mutableStateOf(storage.prefs.getBoolean("horizontal",false))
     var extraControls by mutableStateOf(storage.prefs.getBoolean("extras",false))
+    var navigationMediaControls by mutableStateOf(storage.prefs.getBoolean("navigation_media_controls",false))
     var discovered=mutableStateListOf<String>();private set
     private var foreground=false
     private var resumeWanted=false
@@ -56,7 +57,7 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     init {runCatching{connectivity.registerDefaultNetworkCallback(callback)}}
     fun startDiscovery(){foreground=true;discovery.start();if(resumeWanted&&!connected&&!demo)selected?.takeIf{it.token.isNotEmpty()}?.let{connect(it)}}
     fun stopDiscovery()=discovery.stop()
-    fun saveSettings(){storage.prefs.edit().putFloat("sensitivity",sensitivity).putFloat("acceleration",acceleration).putFloat("scroll",scrollSpeed).putBoolean("scroll_wheel",scrollWheel).putBoolean("natural",natural).putBoolean("haptics",haptics).putBoolean("tap",tap).putBoolean("left",leftHanded).putBoolean("awake",awake).putBoolean("palm",palm).putBoolean("battery",batteryMode).putBoolean("horizontal",horizontal).putBoolean("extras",extraControls).apply()}
+    fun saveSettings(){storage.prefs.edit().putFloat("sensitivity",sensitivity).putFloat("acceleration",acceleration).putFloat("scroll",scrollSpeed).putBoolean("scroll_wheel",scrollWheel).putBoolean("natural",natural).putBoolean("haptics",haptics).putBoolean("tap",tap).putBoolean("left",leftHanded).putBoolean("awake",awake).putBoolean("palm",palm).putBoolean("battery",batteryMode).putBoolean("horizontal",horizontal).putBoolean("extras",extraControls).putBoolean("navigation_media_controls",navigationMediaControls).apply()}
     fun connect(c:Computer){resumeWanted=true;demo=false;drag=false;selected=c;transport.connect(c)}
     fun reconnect(){selected?.let{connect(it)}}
     fun pair(uri:String){runCatching{
