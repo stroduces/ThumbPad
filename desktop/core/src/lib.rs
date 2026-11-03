@@ -1,5 +1,7 @@
 pub mod input;
 pub mod protocol;
+#[cfg(any(target_os = "macos", test))]
+mod scroll;
 use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit, Nonce};
 use anyhow::{anyhow, bail, Context, Result};
 use rand::RngCore;

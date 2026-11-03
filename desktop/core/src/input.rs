@@ -5,6 +5,8 @@ use anyhow::{bail, Result};
 pub struct Input {
     held: [bool; 3],
     remainder: [f32; 2],
+    #[cfg(target_os = "macos")]
+    scroll: crate::scroll::PixelScroll,
     dry: bool,
 }
 impl Input {
@@ -38,8 +40,18 @@ impl Input {
                 }
             }
             3 => {
-                if !self.dry {
-                    native::scroll(p.a, p.b)?;
+                #[cfg(target_os = "macos")]
+                {
+                    let (x, y) = self.scroll.take(p.a, p.b);
+                    if !self.dry && (x != 0 || y != 0) {
+                        native::scroll(x, y)?;
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    if !self.dry {
+                        native::scroll(p.a, p.b)?;
+                    }
                 }
             }
             4 => {
@@ -62,6 +74,10 @@ impl Input {
             }
         }
         self.remainder = [0.0; 2];
+        #[cfg(target_os = "macos")]
+        {
+            self.scroll = crate::scroll::PixelScroll::default();
+        }
     }
 }
 impl Drop for Input {
@@ -182,12 +198,19 @@ mod native {
             point: Point,
             button: u32,
         ) -> *mut c_void;
-        fn CGEventCreateScrollWheelEvent(
+        // Use Apple's non-variadic API. The old declaration omitted the fixed
+        // wheel1 argument; on Apple Silicon this placed it on the stack instead
+        // of in the expected register, producing arbitrary scroll magnitudes.
+        fn CGEventCreateScrollWheelEvent2(
             source: *const c_void,
             units: u32,
             count: u32,
-            ...
+            wheel1: i32,
+            wheel2: i32,
+            wheel3: i32,
         ) -> *mut c_void;
+        #[cfg(test)]
+        fn CGEventGetIntegerValueField(event: *const c_void, field: u32) -> i64;
         fn CGEventCreateKeyboardEvent(source: *const c_void, key: u16, down: bool) -> *mut c_void;
         fn CGEventSetFlags(event: *mut c_void, flags: u64);
         fn CGEventPost(tap: u32, event: *const c_void);
@@ -304,16 +327,15 @@ mod native {
             ))
         }
     }
-    pub fn scroll(x: f32, y: f32) -> Result<()> {
-        unsafe {
-            post(CGEventCreateScrollWheelEvent(
-                std::ptr::null(),
-                0,
-                2,
-                (-y).round() as i32,
-                (-x).round() as i32,
-            ))
+    fn scroll_event(x: i32, y: i32) -> Result<*mut c_void> {
+        let event = unsafe { CGEventCreateScrollWheelEvent2(std::ptr::null(), 0, 2, -y, -x, 0) };
+        if event.is_null() {
+            bail!("macOS scroll event unavailable");
         }
+        Ok(event)
+    }
+    pub fn scroll(x: i32, y: i32) -> Result<()> {
+        unsafe { post(scroll_event(x, y)?) }
     }
     pub fn shortcut(id: u8) -> Result<()> {
         if (2..=4).contains(&id) {
@@ -333,6 +355,37 @@ mod native {
             }
         }
         Ok(())
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn quartz_scroll_event_preserves_signed_pixel_axes_without_posting() {
+            for (x, y) in [
+                (0, 1),
+                (0, -1),
+                (1, 0),
+                (-1, 0),
+                (3, -7),
+                (-4, 9),
+                (2048, -2048),
+            ] {
+                let event = scroll_event(x, y).expect("create scroll event");
+                let (vertical, horizontal, continuous) = unsafe {
+                    let fields = (
+                        CGEventGetIntegerValueField(event, 96), // point delta axis 1 (vertical)
+                        CGEventGetIntegerValueField(event, 97), // point delta axis 2 (horizontal)
+                        CGEventGetIntegerValueField(event, 88), // pixel/continuous flag
+                    );
+                    CFRelease(event);
+                    fields
+                };
+                assert_eq!(vertical, i64::from(-y), "vertical delta for ({x}, {y})");
+                assert_eq!(horizontal, i64::from(-x), "horizontal delta for ({x}, {y})");
+                assert_eq!(continuous, 1, "pixel units must remain continuous");
+            }
+        }
     }
 }
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
@@ -365,6 +418,23 @@ pub fn accessibility() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn release_resets_fractional_scroll_before_the_next_gesture() {
+        let mut input = Input::new(true);
+        input
+            .dispatch(Packet {
+                kind: 3,
+                sequence: 1,
+                micros: 0,
+                a: 0.75,
+                b: -0.75,
+            })
+            .unwrap();
+        input.release();
+        assert_eq!(input.scroll.take(0.25, -0.25), (0, 0));
+        assert_eq!(input.scroll.take(0.75, -0.75), (1, -1));
+    }
     #[test]
     fn disconnect_releases_all() {
         let mut i = Input::new(true);

@@ -2,7 +2,7 @@
 
 A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + Jetpack Compose on your phone; Tauri 2 + a Rust TLS receiver on your desk. No account, browser tab, relay, clipboard sharing, telemetry, or internet dependency after installation.
 
-**Development builds: desktop 0.1.0, Android 0.1.4.** Android now uses a compact connection control and a larger trackpad, with the introductory headings and visible trackpad text removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
+**Development builds: desktop 0.1.1, Android 0.1.4.** Desktop 0.1.1 corrects the macOS scroll-event call that could cause jumps to the bottom of a page on Apple Silicon. Android now uses a compact connection control and a larger trackpad, with the introductory headings and visible trackpad text removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
 
 ## Install
 
@@ -25,6 +25,8 @@ A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + 
 4. Scan the QR from the phone and approve. For removal use Windows Settings → Apps → ThumbPad → Uninstall. Trusted identity data remains in your local profile to avoid surprising re-pairing after upgrades; revoke devices in the app before uninstalling when desired.
 
 ### macOS, Apple Silicon / Intel
+If scrolling jumps to the bottom of a page, update the **Mac companion** to 0.1.1; the Android APK does not need to change. In your Mac checkout run `git pull --ff-only` and `bash scripts/build-macos.sh`, quit the old tray/menu-bar app, then install the newly built DMG and replace the copy in Applications. See [the scroll fix](docs/MAC_SCROLL_FIX.md).
+
 1. Build on a Mac or download `ThumbPad-macOS-AppleSilicon.dmg` / `ThumbPad-macOS-Intel.dmg` from a successful workflow. No DMG can be produced by this Windows environment.
 2. Open the disk image and drag ThumbPad into Applications. Start the installed copy. Without a Developer ID signature/notarization, macOS may block it. Review your build's origin and use macOS's explicit **Open Anyway** flow in Privacy & Security if you choose to trust the development build. Do not disable Gatekeeper globally.
 3. In ThumbPad choose **Open Accessibility settings** and enable the installed ThumbPad app in System Settings → Privacy & Security → Accessibility. Relaunch if needed. ThumbPad detects this permission; it never bypasses it. Allow Local Network access if macOS asks.
