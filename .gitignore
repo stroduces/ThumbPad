@@ -1,0 +1,12 @@
+.tools/
+**/target/
+**/build/
+**/.gradle/
+**/node_modules/
+android/local.properties
+dist/
+*.keystore
+*.jks
+*.log
+local-smoke/
+desktop/src-tauri/gen/schemas/

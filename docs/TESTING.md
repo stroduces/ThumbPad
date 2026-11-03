@@ -1,0 +1,18 @@
+# Acceptance and smoke tests
+
+Automated coverage:
+- Rust: golden packet, strict payload validation, sequence replay, private-interface filter, token comparison, invitation rotation/revocation generation, disconnect release, idempotent button states.
+- Kotlin/JUnit: matching golden vector, tap/drag thresholds at varied sample rates, two-finger tap, deterministic sensitivity, scroll direction, bounded ordered action queue, stale motion discard.
+- Network integration: actual pinned TLS, wrong invitation rejection, desktop approval, exclusive controller, ordered drag/move/release frames, 100 heartbeat echoes, trusted reconnect, repeated sequence rejection, disable during a held drag/partial frame, malformed packets, heartbeat watchdog, active revocation and revoke/reconnect rejection. Test server is loopback-only with dry native input and volatile storage.
+- Packaging: APK binary manifest/DEX/resources and debug signature; PE/NSIS markers, Windows silent per-user install/executable/uninstall; macOS UDIF footer, hdiutil verify/attach, app and Applications link, Mach-O and plist checks on native CI runners.
+- Android instrumentation: install/launch and demo click/drag release using Compose semantics, plus real Android-to-Rust pinned TLS pairing, clicks, cursor drag and trusted reconnect. Requires a running Android emulator, `android/gradlew -p android assembleDebug assembleDebugAndroidTest`, a built smoke receiver and `node scripts/android-network-smoke.mjs`. The host dispatcher is dry; Android reaches loopback through the emulator's 10.0.2.2 alias. A plain `connectedDebugAndroidTest` run skips the optional pairing test unless a `pairingUri` runner argument is supplied. CI uses the full script and asserts both tests passed.
+
+Physical acceptance still requires both computers and the intended phone. Do these before treating the development build as daily-use ready:
+1. Pair with QR and with manual invitation. Reject an unknown phone. Rotate/expire invitations. Revoke a trusted phone and confirm reconnect fails.
+2. Switch from Windows to Mac. Ensure the old host receives release/disconnect. Reconnect after Wi-Fi off/on, a call, screen lock, phone suspend, desktop sleep/wake and DHCP changes. Check there is no stale motion after return.
+3. At 60/90/120Hz as supported, flick rapidly without accidental taps. Target tiny form controls, scroll 20 pages with one thumb, drag a slider across repeated swipes, select text, click secondary/middle controls, test horizontal scrolling.
+4. Test mixed-DPI multiple displays including negative global origins. Verify both scroll directions and the three sensitivity presets. On Mac check Accessibility denial, permission grant/relaunch, and OS scrolling settings.
+5. Disconnect during a held drag, cut Wi-Fi and disable/revoke from desktop. Verify button release promptly (50ms administrative check, three-second inactivity watchdog). Test a deliberately malformed/partial packet against the isolated test server.
+6. Run for a treadmill walk with each hand; tune sensitivity and tap rejection. Measure power/CPU over at least 30 minutes active and idle. Check TalkBack, large font sizes and minimum supported Android 8 phone layout; they are not proven by unit tests.
+
+Never inject automated clicks into the user's unrelated applications as part of a smoke test. Native event acceptance must be verified against a dedicated test window on the actual OS. CI cannot prove physical cursor presentation, Wi-Fi performance, Apple permission UX or human ergonomics.
