@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -56,21 +57,21 @@ private val Mint=Color(0xFFB8E6CC)
     DisposableEffect(m.connected,m.awake){if(m.connected&&m.awake)activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)else activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);onDispose{activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}}
     fun buzz(){if(m.haptics)haptic.performHapticFeedback(HapticFeedbackType.LongPress)}
     val battery=remember{context.registerReceiver(null,IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.let{val level=it.getIntExtra(BatteryManager.EXTRA_LEVEL,-1);val scale=it.getIntExtra(BatteryManager.EXTRA_SCALE,100);if(level>=0)"${level*100/scale}%" else ""}?:""}
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=22.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=14.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             Text("↗",fontSize=30.sp,color=MaterialTheme.colorScheme.primary,modifier=Modifier.padding(end=9.dp))
             Text("ThumbPad",fontSize=23.sp,fontWeight=FontWeight.SemiBold,letterSpacing=(-1).sp)
             Spacer(Modifier.weight(1f));Text(battery,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick={settings=true},modifier=Modifier.semantics{contentDescription="Open settings"}){Text("⚙",fontSize=23.sp)}
         }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-            Column {Text(if(m.demo)"FIND YOUR FEEL" else "MAKE ROOM TO MOVE",fontSize=10.sp,letterSpacing=2.sp,color=MaterialTheme.colorScheme.primary);Text("Your desk. Your stride.",fontSize=24.sp,letterSpacing=(-.8).sp,modifier=Modifier.padding(top=6.dp))}
-        }
-        Surface(onClick={devices=true},shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,modifier=Modifier.fillMaxWidth().heightIn(min=76.dp)){
-            Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){
-                Surface(shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceVariant){Text(if(m.demo)"◉" else "▣",fontSize=24.sp,modifier=Modifier.padding(9.dp),color=MaterialTheme.colorScheme.primary)}
-                Column(Modifier.weight(1f).padding(start=12.dp)){Text(if(m.demo)"Practice space" else m.selected?.name?:"Find your computer",fontSize=15.sp,fontWeight=FontWeight.Medium);Text(if(m.connected)"● Connected · ${m.rtt} ms round trip" else m.status,fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)}
-                Text("⌄",fontSize=22.sp,color=MaterialTheme.colorScheme.primary)
+        Surface(onClick={devices=true},shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
+            Row(Modifier.padding(horizontal=12.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+                Surface(shape=RoundedCornerShape(8.dp),color=MaterialTheme.colorScheme.surfaceVariant){Text(if(m.demo)"◉" else "▣",fontSize=18.sp,modifier=Modifier.padding(5.dp),color=MaterialTheme.colorScheme.primary)}
+                Column(Modifier.weight(1f).padding(start=10.dp)){
+                    Text(if(m.demo)"Practice space" else m.selected?.name?:"Find your computer",fontSize=13.sp,fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(if(m.connected)"● Connected · ${m.rtt} ms round trip" else m.status,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+                Text("⌄",fontSize=18.sp,color=MaterialTheme.colorScheme.primary)
             }
         }
         if(m.pairingCode.isNotEmpty())Text("Confirm ${m.pairingCode} on your desktop",color=MaterialTheme.colorScheme.primary,fontSize=14.sp)
