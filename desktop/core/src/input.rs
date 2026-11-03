@@ -12,8 +12,11 @@ pub struct Input {
 impl Input {
     pub fn new(dry: bool) -> Self {
         Self {
+            held: [false; 3],
+            remainder: [0.0; 2],
+            #[cfg(target_os = "macos")]
+            scroll: crate::scroll::PixelScroll::default(),
             dry,
-            ..Self::default()
         }
     }
     pub fn dispatch(&mut self, p: Packet) -> Result<()> {
@@ -335,7 +338,7 @@ mod native {
         Ok(event)
     }
     pub fn scroll(x: i32, y: i32) -> Result<()> {
-        unsafe { post(scroll_event(x, y)?) }
+        post(scroll_event(x, y)?)
     }
     pub fn shortcut(id: u8) -> Result<()> {
         if (2..=4).contains(&id) {
