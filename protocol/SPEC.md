@@ -6,7 +6,7 @@ The QR invitation is `thumbpad://pair?host=<IPv4>&port=47321&fp=<64 hex SHA256 o
 
 Client hello: u16 little-endian byte length (1–2048), then UTF-8 JSON `{version:1,id:<32 hex persistent ID>,name:<1–80 UTF8 bytes>,secret:<pair invitation>}` OR `token:<trusted device token>`. Handshake has a five-second deadline, pairing confirmation a 60-second deadline. Desktop shows phone name and the first six uppercase invitation hex digits; user explicitly approves. A newly generated 256-bit token is returned only after approval, over pinned TLS. Host stores a SHA-256 token hash. ID identifies a credential, not a hardware attestation. Trusted hello uses the token instead of an invitation.
 
-Server reply: u16 little-endian length + JSON `{ok:true,version:1,token:<new token or null>}`. Authentication failure closes the stream. One controlling client at a time, eight bounded pending TLS sessions, four bounded pairing requests. No pre-auth input processing. No client-supplied executable commands or text injection.
+Server reply: u16 little-endian length + JSON `{ok:true,version:1,token:<new token or null>}`. Receivers supporting type 8 add `key_remapping:true`. Send type 8 only when that flag is present. Authentication failure closes the stream. One controlling client at a time, eight bounded pending TLS sessions, four bounded pairing requests. No pre-auth input processing. No client-supplied executable commands or text injection.
 
 Every subsequent frame is exactly 32 bytes, little endian:
 
@@ -30,6 +30,9 @@ Every subsequent frame is exactly 32 bytes, little endian:
 |5 heartbeat|0|0; server echoes complete frame|
 |6 release all|0|0|
 |7 capabilities/status request|0|0; reserved, currently accepted without response|
+|8 remapped key|USB HID Keyboard/Keypad usage|0 tap. For left/right modifiers, 1 or 2 presses a button slot and −1 or −2 releases it.|
+
+Type 8 accepts usages `04–31`, `33–45`, `49–63`, `68–6F` and `E0–E7` (hex). Only `E0–E7` can be held. Each slot can hold one modifier. A release must match the slot and usage that were pressed. Two slots holding the same modifier keep it down until both release. Release all and session teardown clear both slots along with held mouse buttons.
 
 Nonfinite values, motion/scroll outside ±2048, unknown types, reserved bytes, invalid button payloads and replayed/out-of-order sequences close the connection. Gaps are allowed. TCP orders reliable actions. Repeated button states are idempotent. Heartbeat every second; host releases all held buttons on EOF, malformed packet, disable, revoke, session replacement, or three seconds without valid input. Desktop stop/revoke checks run at most every 50ms. A partially received packet does not reset the watchdog. Normal process exit must allow that cleanup; hard kill cannot guarantee OS cleanup.
 

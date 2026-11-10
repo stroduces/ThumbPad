@@ -12,7 +12,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,7 +27,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
@@ -89,11 +96,49 @@ private val Mint=Color(0xFFB8E6CC)
             TextButton(onClick={m.emit(4,2f);buzz()},enabled=m.connected||m.demo,modifier=Modifier.heightIn(min=48.dp)){Text("Ⅱ  Play / pause")}
             TextButton(onClick={m.emit(4,1f);buzz()},enabled=m.connected||m.demo,modifier=Modifier.heightIn(min=48.dp)){Text("Forward  ›")}
         }
-        if(m.extraControls)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){for((label,id) in listOf("Vol −" to 4,"Vol +" to 3,"Tab" to 7,"Enter" to 5)){TextButton(onClick={m.emit(4,id.toFloat());buzz()},enabled=m.connected||m.demo){Text(label)}}}
+        if (m.extraControls) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                for ((label, id) in listOf("Vol −" to 4, "Vol +" to 3)) {
+                    TextButton(onClick = { m.emit(4, id.toFloat()); buzz() }, enabled = m.connected || m.demo) {
+                        Text(label)
+                    }
+                }
+                KeyButton(m, m.tabKey, 1, Modifier.weight(1f), ::buzz)
+                KeyButton(m, m.enterKey, 2, Modifier.weight(1f), ::buzz)
+            }
+            if (m.connected && !m.remappingSupported &&
+                (m.tabKey.legacyShortcut == null || m.enterKey.legacyShortcut == null)) {
+                Text("Update ThumbPad on your computer to use remapped keys.", fontSize = 11.sp)
+            }
+        }
         Text(if(m.demo)"${m.lastEvent} · ${m.events} events" else if(m.drag)"Drag is locked · swipe, then tap Left click to release" else "Swipe to move · tap to click · slide the edge to scroll",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.align(Alignment.CenterHorizontally))
     }
     if(devices)Devices(m,onDismiss={devices=false},scan={devices=false;scan()})
     if(settings)Settings(m){m.saveSettings();settings=false}
+}
+
+@Composable private fun KeyButton(m: RemoteModel, key: RemoteKey, slot: Int, modifier: Modifier, buzz: () -> Unit) {
+    val enabled = m.demo || (m.connected && (m.remappingSupported || key.legacyShortcut != null))
+    val press = if (key.modifier && enabled) Modifier.pointerInput(key, slot) {
+        awaitEachGesture {
+            awaitFirstDown(pass = PointerEventPass.Initial).consume()
+            m.sendKey(key, slot)
+            buzz()
+            try {
+                waitForUpOrCancellation(PointerEventPass.Initial)?.consume()
+            } finally {
+                m.sendKey(key, -slot)
+            }
+        }
+    } else Modifier
+    TextButton(
+        onClick = { m.sendKey(key); buzz() },
+        enabled = enabled,
+        modifier = modifier.then(press),
+        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 8.dp)
+    ) {
+        Text(key.label.substringBefore(" / "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 @Composable private fun rememberSaveableState(initial:Boolean)=androidx.compose.runtime.saveable.rememberSaveable{mutableStateOf(initial)}
 
@@ -156,6 +201,7 @@ private val Mint=Color(0xFFB8E6CC)
     }},confirmButton={TextButton(onClick=onDismiss){Text("Done")}})
 }
 @Composable private fun Settings(m:RemoteModel,onDismiss:()->Unit){
+    var remapSlot by remember { mutableIntStateOf(0) }
     AlertDialog(onDismissRequest=onDismiss,title={Text("Make it feel like you")},text={Column(Modifier.verticalScroll(rememberScrollState())){
         Text("Pointer feel",fontWeight=FontWeight.SemiBold)
         Row {for((label,speed) in listOf("Precision" to .7f,"Balanced" to 1.4f,"Fast" to 2.4f)){TextButton(onClick={m.sensitivity=speed}){Text(label,fontSize=11.sp)}}}
@@ -171,7 +217,40 @@ private val Mint=Color(0xFFB8E6CC)
         SettingToggle("Palm rejection",m.palm){m.palm=it}
         SettingToggle("Keep screen awake while connected",m.awake){m.awake=it}
         SettingToggle("Extra volume / keyboard controls",m.extraControls){m.extraControls=it}
+        if (m.extraControls) {
+            TextButton(onClick = { remapSlot = 1 }) { Text("Tab button · ${m.tabKey.label}") }
+            TextButton(onClick = { remapSlot = 2 }) { Text("Enter button · ${m.enterKey.label}") }
+        }
         SettingToggle("Show Back / Play / Forward",m.navigationMediaControls){m.navigationMediaControls=it}
         Text("No account. Encrypted local connection. Camera is used only to scan your desktop’s QR code.",fontSize=11.sp)
     }},confirmButton={TextButton(onClick=onDismiss){Text("Save & close")}})
+    if (remapSlot != 0) {
+        val slot = remapSlot
+        KeyPicker(if (slot == 1) "Tab" else "Enter", if (slot == 1) m.tabKey else m.enterKey,
+            onDismiss = { remapSlot = 0 },
+            onSelect = { key -> m.remap(slot, key); remapSlot = 0 })
+    }
+}
+
+@Composable private fun KeyPicker(button: String, selected: RemoteKey, onDismiss: () -> Unit, onSelect: (RemoteKey) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val keys = remember(query) { remoteKeys.filter { it.label.contains(query.trim(), ignoreCase = true) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Remap $button button") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Find a key") }, singleLine = true)
+                LazyColumn(Modifier.height(248.dp)) {
+                    items(keys, key = { it.usage }) { key ->
+                        TextButton(onClick = { onSelect(key) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (key == selected) "${key.label} ✓" else key.label)
+                        }
+                    }
+                    if (keys.isEmpty()) item { Text("No matching keys", Modifier.padding(12.dp)) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

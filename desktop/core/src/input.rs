@@ -4,6 +4,7 @@ use anyhow::{bail, Result};
 #[derive(Default)]
 pub struct Input {
     held: [bool; 3],
+    modifiers: [u8; 2],
     remainder: [f32; 2],
     #[cfg(target_os = "macos")]
     scroll: crate::scroll::PixelScroll,
@@ -13,6 +14,7 @@ impl Input {
     pub fn new(dry: bool) -> Self {
         Self {
             held: [false; 3],
+            modifiers: [0; 2],
             remainder: [0.0; 2],
             #[cfg(target_os = "macos")]
             scroll: crate::scroll::PixelScroll::default(),
@@ -29,7 +31,7 @@ impl Input {
                 self.remainder[0] -= x as f32;
                 self.remainder[1] -= y as f32;
                 if !self.dry {
-                    native::motion(x, y)?;
+                    native::motion(x, y, self.modifiers)?;
                 }
             }
             2 => {
@@ -37,7 +39,7 @@ impl Input {
                 let down = p.b == 1.0;
                 if self.held[i] != down {
                     if !self.dry {
-                        native::button(i, down)?;
+                        native::button(i, down, self.modifiers)?;
                     }
                     self.held[i] = down;
                 }
@@ -47,35 +49,66 @@ impl Input {
                 {
                     let (x, y) = self.scroll.take(p.a, p.b);
                     if !self.dry && (x != 0 || y != 0) {
-                        native::scroll(x, y)?;
+                        native::scroll(x, y, self.modifiers)?;
                     }
                 }
                 #[cfg(not(target_os = "macos"))]
                 {
                     if !self.dry {
-                        native::scroll(p.a, p.b)?;
+                        native::scroll(p.a, p.b, self.modifiers)?;
                     }
                 }
             }
             4 => {
                 if !self.dry {
-                    native::shortcut(p.a as u8)?;
+                    native::shortcut(p.a as u8, self.modifiers)?;
                 }
             }
             6 => self.release(),
+            8 => self.key(p.a as u8, p.b as i8)?,
             _ => (),
         }
+        Ok(())
+    }
+    fn key(&mut self, usage: u8, action: i8) -> Result<()> {
+        if action == 0 {
+            if !self.dry && !self.modifiers.contains(&usage) {
+                native::key(usage, true, self.modifiers)?;
+                native::key(usage, false, self.modifiers)?;
+            }
+            return Ok(());
+        }
+
+        let slot = usize::from(action.unsigned_abs() - 1);
+        let down = action > 0;
+        let current = self.modifiers[slot];
+        if (down && current != 0) || (!down && current != usage) {
+            return Ok(());
+        }
+        let mut next = self.modifiers;
+        next[slot] = if down { usage } else { 0 };
+        if !self.dry && self.modifiers.contains(&usage) != next.contains(&usage) {
+            native::key(usage, down, next)?;
+        }
+        self.modifiers = next;
         Ok(())
     }
     pub fn release(&mut self) {
         for i in 0..3 {
             if self.held[i] {
                 if !self.dry {
-                    let _ = native::button(i, false);
+                    let _ = native::button(i, false, self.modifiers);
                 }
                 self.held[i] = false;
             }
         }
+        for slot in 0..2 {
+            let usage = self.modifiers[slot];
+            if usage != 0 {
+                let _ = self.key(usage, -(slot as i8 + 1));
+            }
+        }
+        self.modifiers = [0; 2];
         self.remainder = [0.0; 2];
         #[cfg(target_os = "macos")]
         {
@@ -92,6 +125,7 @@ impl Drop for Input {
 #[cfg(target_os = "windows")]
 mod native {
     use super::*;
+    use crate::keyboard;
     #[repr(C)]
     #[derive(Clone, Copy)]
     struct Mouse {
@@ -144,13 +178,13 @@ mod native {
         }
         Ok(())
     }
-    pub fn motion(x: i32, y: i32) -> Result<()> {
+    pub fn motion(x: i32, y: i32, _: [u8; 2]) -> Result<()> {
         mouse(x, y, 0, 0x0001)
     }
-    pub fn button(i: usize, down: bool) -> Result<()> {
+    pub fn button(i: usize, down: bool, _: [u8; 2]) -> Result<()> {
         mouse(0, 0, 0, [[2, 4], [8, 16], [32, 64]][i][usize::from(!down)])
     }
-    pub fn scroll(x: f32, y: f32) -> Result<()> {
+    pub fn scroll(x: f32, y: f32, _: [u8; 2]) -> Result<()> {
         if y != 0.0 {
             mouse(0, 0, (-y * 3.0).round() as i32 as u32, 0x0800)?;
         }
@@ -159,24 +193,30 @@ mod native {
         }
         Ok(())
     }
-    pub fn shortcut(id: u8) -> Result<()> {
+    pub fn shortcut(id: u8, _: [u8; 2]) -> Result<()> {
         let vk = [0xA6, 0xA7, 0xB3, 0xAF, 0xAE, 0x0D, 0x1B, 0x09, 0x08][id as usize];
-        for flags in [0, 2] {
-            let e = Event {
-                kind: 1,
-                payload: Payload {
-                    key: Key {
-                        vk,
-                        scan: 0,
-                        flags,
-                        time: 0,
-                        extra: 0,
-                    },
+        send_key(vk, false, true)?;
+        send_key(vk, false, false)
+    }
+    pub fn key(usage: u8, down: bool, _: [u8; 2]) -> Result<()> {
+        let (vk, extended) = keyboard::windows_key(usage);
+        send_key(vk, extended, down)
+    }
+    fn send_key(vk: u16, extended: bool, down: bool) -> Result<()> {
+        let e = Event {
+            kind: 1,
+            payload: Payload {
+                key: Key {
+                    vk,
+                    scan: 0,
+                    flags: u32::from(extended) | (u32::from(!down) << 1),
+                    time: 0,
+                    extra: 0,
                 },
-            };
-            if unsafe { SendInput(1, &e, std::mem::size_of::<Event>() as i32) } != 1 {
-                bail!("keyboard injection rejected");
-            }
+            },
+        };
+        if unsafe { SendInput(1, &e, std::mem::size_of::<Event>() as i32) } != 1 {
+            bail!("keyboard injection rejected");
         }
         Ok(())
     }
@@ -184,6 +224,7 @@ mod native {
 #[cfg(target_os = "macos")]
 mod native {
     use super::*;
+    use crate::keyboard;
     use std::ffi::c_void;
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -214,8 +255,14 @@ mod native {
         ) -> *mut c_void;
         #[cfg(test)]
         fn CGEventGetIntegerValueField(event: *const c_void, field: u32) -> i64;
+        #[cfg(test)]
+        fn CGEventGetType(event: *const c_void) -> u32;
+        #[cfg(test)]
+        fn CGEventGetFlags(event: *const c_void) -> u64;
         fn CGEventCreateKeyboardEvent(source: *const c_void, key: u16, down: bool) -> *mut c_void;
+        fn CGEventSetType(event: *mut c_void, kind: u32);
         fn CGEventSetFlags(event: *mut c_void, flags: u64);
+        fn CGEventSourceFlagsState(state: i32) -> u64;
         fn CGEventPost(tap: u32, event: *const c_void);
         fn CGEventSourceButtonState(state: i32, button: u32) -> bool;
         pub fn AXIsProcessTrusted() -> bool;
@@ -292,7 +339,32 @@ mod native {
             p
         }
     }
-    pub fn motion(x: i32, y: i32) -> Result<()> {
+    fn modifier_flags(usage: u8) -> (u64, u64) {
+        match usage {
+            0xE0 => (1 << 18, 0x0001), // Left Control
+            0xE1 => (1 << 17, 0x0002), // Left Shift
+            0xE2 => (1 << 19, 0x0020), // Left Option
+            0xE3 => (1 << 20, 0x0008), // Left Command
+            0xE4 => (1 << 18, 0x2000), // Right Control
+            0xE5 => (1 << 17, 0x0004), // Right Shift
+            0xE6 => (1 << 19, 0x0040), // Right Option
+            0xE7 => (1 << 20, 0x0010), // Right Command
+            _ => (0, 0),
+        }
+    }
+    fn held_flags(held: [u8; 2]) -> u64 {
+        held.into_iter().fold(0, |flags, usage| {
+            let (group, side) = modifier_flags(usage);
+            flags | group | side
+        })
+    }
+    fn post_with_modifiers(e: *mut c_void, held: [u8; 2]) -> Result<()> {
+        if !e.is_null() && held != [0; 2] {
+            unsafe { CGEventSetFlags(e, CGEventSourceFlagsState(1) | held_flags(held)) };
+        }
+        post(e)
+    }
+    pub fn motion(x: i32, y: i32, held: [u8; 2]) -> Result<()> {
         let mut p = point();
         p.x += x as f64;
         p.y += y as f64;
@@ -306,28 +378,34 @@ mod native {
             } else {
                 5
             };
-            post(CGEventCreateMouseEvent(
-                std::ptr::null(),
-                kind,
-                p,
-                if kind == 7 {
-                    1
-                } else if kind == 27 {
-                    2
-                } else {
-                    0
-                },
-            ))
+            post_with_modifiers(
+                CGEventCreateMouseEvent(
+                    std::ptr::null(),
+                    kind,
+                    p,
+                    if kind == 7 {
+                        1
+                    } else if kind == 27 {
+                        2
+                    } else {
+                        0
+                    },
+                ),
+                held,
+            )
         }
     }
-    pub fn button(i: usize, down: bool) -> Result<()> {
+    pub fn button(i: usize, down: bool, held: [u8; 2]) -> Result<()> {
         unsafe {
-            post(CGEventCreateMouseEvent(
-                std::ptr::null(),
-                [[1, 2], [3, 4], [25, 26]][i][usize::from(!down)],
-                point(),
-                i as u32,
-            ))
+            post_with_modifiers(
+                CGEventCreateMouseEvent(
+                    std::ptr::null(),
+                    [[1, 2], [3, 4], [25, 26]][i][usize::from(!down)],
+                    point(),
+                    i as u32,
+                ),
+                held,
+            )
         }
     }
     fn scroll_event(x: i32, y: i32) -> Result<*mut c_void> {
@@ -337,10 +415,10 @@ mod native {
         }
         Ok(event)
     }
-    pub fn scroll(x: i32, y: i32) -> Result<()> {
-        post(scroll_event(x, y)?)
+    pub fn scroll(x: i32, y: i32, held: [u8; 2]) -> Result<()> {
+        post_with_modifiers(scroll_event(x, y)?, held)
     }
-    pub fn shortcut(id: u8) -> Result<()> {
+    pub fn shortcut(id: u8, held: [u8; 2]) -> Result<()> {
         if (2..=4).contains(&id) {
             return unsafe { media([16, 0, 1][(id - 2) as usize]) };
         }
@@ -352,16 +430,79 @@ mod native {
                     bail!("macOS keyboard event unavailable");
                 }
                 if id <= 1 {
-                    CGEventSetFlags(event, 1 << 20);
+                    CGEventSetFlags(event, (1 << 20) | held_flags(held));
+                    post(event)?;
+                } else {
+                    post_with_modifiers(event, held)?;
                 }
-                post(event)?;
             }
         }
         Ok(())
     }
+    const FLAGS_CHANGED: u32 = 12;
+    const CAPS_LOCK: u8 = 0x39;
+
+    fn keyboard_event(usage: u8, down: bool, mut flags: u64) -> Result<*mut c_void> {
+        let (group, side) = modifier_flags(usage);
+        if down {
+            flags |= group | side;
+        } else if group != 0 {
+            flags &= !side;
+            let (_, other_side) = modifier_flags(usage ^ 4);
+            if flags & other_side == 0 {
+                flags &= !group;
+            }
+        }
+        let event =
+            unsafe { CGEventCreateKeyboardEvent(std::ptr::null(), keyboard::mac_key(usage), down) };
+        if event.is_null() {
+            bail!("macOS keyboard event unavailable");
+        }
+        unsafe {
+            if group != 0 || usage == CAPS_LOCK {
+                CGEventSetType(event, FLAGS_CHANGED);
+            }
+            CGEventSetFlags(event, flags);
+        }
+        Ok(event)
+    }
+    pub fn key(usage: u8, down: bool, held: [u8; 2]) -> Result<()> {
+        let mut flags = unsafe { CGEventSourceFlagsState(1) } | held_flags(held);
+        if usage == CAPS_LOCK {
+            if !down {
+                return Ok(());
+            }
+            let caps = 1 << 16;
+            let current = unsafe { CGEventSourceFlagsState(0) } & caps;
+            flags = (flags & !caps) | (current ^ caps);
+        }
+        post(keyboard_event(usage, down, flags)?)
+    }
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn quartz_right_option_events_identify_the_correct_side() {
+            let left_option = (1 << 19) | 0x20;
+            let right_option = (1 << 19) | 0x40;
+            for (down, flags, expected) in [
+                (true, 0, right_option),
+                (false, right_option, 0),
+                (false, right_option | left_option, left_option),
+            ] {
+                let event = keyboard_event(0xE6, down, flags).unwrap();
+                unsafe {
+                    let keycode = CGEventGetIntegerValueField(event, 9);
+                    let kind = CGEventGetType(event);
+                    let flags = CGEventGetFlags(event);
+                    CFRelease(event);
+                    assert_eq!(keycode, 0x3D);
+                    assert_eq!(kind, FLAGS_CHANGED);
+                    assert_eq!(flags, expected);
+                }
+            }
+        }
 
         #[test]
         fn quartz_scroll_event_preserves_signed_pixel_axes_without_posting() {
@@ -394,16 +535,19 @@ mod native {
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 mod native {
     use super::*;
-    pub fn motion(_: i32, _: i32) -> Result<()> {
+    pub fn motion(_: i32, _: i32, _: [u8; 2]) -> Result<()> {
         bail!("unsupported OS")
     }
-    pub fn button(_: usize, _: bool) -> Result<()> {
+    pub fn button(_: usize, _: bool, _: [u8; 2]) -> Result<()> {
         bail!("unsupported OS")
     }
-    pub fn scroll(_: f32, _: f32) -> Result<()> {
+    pub fn scroll(_: f32, _: f32, _: [u8; 2]) -> Result<()> {
         bail!("unsupported OS")
     }
-    pub fn shortcut(_: u8) -> Result<()> {
+    pub fn shortcut(_: u8, _: [u8; 2]) -> Result<()> {
+        bail!("unsupported OS")
+    }
+    pub fn key(_: u8, _: bool, _: [u8; 2]) -> Result<()> {
         bail!("unsupported OS")
     }
 }
@@ -421,6 +565,18 @@ pub fn accessibility() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn modifier_slots_release_independently_and_clear_on_disconnect() {
+        let mut input = Input::new(true);
+        input.key(0xE6, 1).unwrap();
+        input.key(0xE6, 2).unwrap();
+        input.key(0xE2, -1).unwrap();
+        assert_eq!(input.modifiers, [0xE6, 0xE6]);
+        input.key(0xE6, -1).unwrap();
+        assert_eq!(input.modifiers, [0, 0xE6]);
+        input.release();
+        assert_eq!(input.modifiers, [0, 0]);
+    }
     #[cfg(target_os = "macos")]
     #[test]
     fn release_resets_fractional_scroll_before_the_next_gesture() {

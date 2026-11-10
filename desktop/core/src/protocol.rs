@@ -1,3 +1,4 @@
+use crate::keyboard;
 use anyhow::{bail, Result};
 
 pub const PACKET_SIZE: usize = 32;
@@ -30,6 +31,12 @@ impl Packet {
             }
             4 if (0.0..=8.0).contains(&p.a) && p.a.fract() == 0.0 && p.b == 0.0 => (),
             5..=7 if p.a == 0.0 && p.b == 0.0 => (),
+            8 if (0.0..=255.0).contains(&p.a)
+                && p.a.fract() == 0.0
+                && keyboard::supported(p.a as u8)
+                && (p.b == 0.0
+                    || (keyboard::modifier(p.a as u8)
+                        && matches!(p.b, -2.0 | -1.0 | 1.0 | 2.0))) => {}
             _ => bail!("unknown or invalid event"),
         }
         Ok(p)
@@ -84,6 +91,11 @@ mod tests {
             (1, f32::NAN, 0.0),
             (4, 9.0, 0.0),
             (3, 3000.0, 0.0),
+            (8, 256.0, 0.0),
+            (8, 230.5, 0.0),
+            (8, 3.0, 0.0),
+            (8, 4.0, 1.0),
+            (8, 230.0, -3.0),
         ] {
             assert!(Packet::decode(
                 &Packet {
@@ -98,6 +110,19 @@ mod tests {
             .is_err());
         }
         assert!(Packet::decode(&[0; 31]).is_err());
+    }
+    #[test]
+    fn accepts_right_option_and_separate_button_slots() {
+        for b in [-2.0, -1.0, 0.0, 1.0, 2.0] {
+            let p = Packet {
+                kind: 8,
+                sequence: 1,
+                micros: 0,
+                a: 0xE6 as f32,
+                b,
+            };
+            assert_eq!(Packet::decode(&p.encode()).unwrap(), p);
+        }
     }
     #[test]
     fn sequence_replay() {

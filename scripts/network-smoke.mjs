@@ -28,12 +28,13 @@ try{
  // Give listener startup a moment; no browser, no input injection, no certificate bypass.
  await new Promise(r=>setTimeout(r,150));
  const bad=await dial({secret:'0'.repeat(64)});await assert.rejects(bad.hello());bad.sock.destroy();
- const good=await dial({secret:uri.searchParams.get('secret')});const hello=await good.hello();assert.equal(hello.ok,true);assert.equal(hello.token.length,64);
+ const good=await dial({secret:uri.searchParams.get('secret')});const hello=await good.hello();assert.equal(hello.ok,true);assert.equal(hello.token.length,64);assert.equal(hello.key_remapping,true);
  const busy=await dial({token:hello.token});await assert.rejects(busy.hello());busy.sock.destroy();
  good.sock.write(packet(2,1,0,1));good.sock.write(packet(1,2,2,-1));good.sock.write(packet(2,3,0,0));
+ good.sock.write(packet(8,4,0xE6,1));good.sock.write(packet(4,5,5));good.sock.write(packet(8,6,0xE6,-1));
  const times=[];
- for(let i=0;i<100;i++){const before=performance.now();good.sock.write(packet(5,i+4));const p=await good.read(32);assert.equal(p[3],5);assert.equal(Number(p.readBigUInt64LE(4)),i+4);times.push(performance.now()-before)}
- good.sock.write(packet(6,104));good.sock.destroy();await new Promise(r=>setTimeout(r,100));
+ for(let i=0;i<100;i++){const before=performance.now();good.sock.write(packet(5,i+7));const p=await good.read(32);assert.equal(p[3],5);assert.equal(Number(p.readBigUInt64LE(4)),i+7);times.push(performance.now()-before)}
+ good.sock.write(packet(6,107));good.sock.destroy();await new Promise(r=>setTimeout(r,100));
  const reconnect=await dial({token:hello.token});assert.equal((await reconnect.hello()).ok,true);
  reconnect.sock.write(packet(5,1));await reconnect.read(32);reconnect.sock.write(packet(5,1));await assert.rejects(reconnect.read(32));reconnect.sock.destroy();
  await new Promise(r=>setTimeout(r,100));const disabled=await dial({token:hello.token});await disabled.hello();disabled.sock.write(packet(2,1,0,1));disabled.sock.write(Buffer.from('T'));child.stdin.write('disable\n');await assert.rejects(disabled.read(32));disabled.sock.destroy();

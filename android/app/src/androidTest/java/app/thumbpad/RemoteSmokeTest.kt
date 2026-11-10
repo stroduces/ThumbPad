@@ -76,4 +76,40 @@ import kotlin.math.sin
         compose.runOnUiThread{model.scrollWheel=false;model.leftHanded=false;model.saveSettings()}
         compose.onNodeWithContentDescription("Scroll wheel").assertDoesNotExist()
     }
+
+    @Test fun tabCanBeRemappedToRightOptionAndHeld() {
+        lateinit var model: RemoteModel
+        compose.runOnUiThread {
+            model = ViewModelProvider(compose.activity)[RemoteModel::class.java]
+            model.demo()
+            model.extraControls = true
+            model.remap(1, remoteKey(0x2B, 0x2B))
+            model.remap(2, remoteKey(0x28, 0x28))
+        }
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNodeWithText("Tab button · Tab").performScrollTo().performClick()
+        compose.onNodeWithText("Find a key").performTextInput("Right Option")
+        compose.onNodeWithText("Right Option / Alt").performClick()
+        compose.onNodeWithText("Save & close").performClick()
+
+        val button = compose.onNodeWithText("Right Option")
+        button.performTouchInput { down(center) }
+        compose.runOnIdle {
+            assertEquals("Right Option / Alt down", model.lastEvent)
+            assertEquals(1, model.events)
+        }
+        button.performTouchInput { up() }
+        compose.runOnIdle {
+            assertEquals("Right Option / Alt up", model.lastEvent)
+            assertEquals(2, model.events)
+            assertEquals(0xE6, model.storage.prefs.getInt("tab_key", -1))
+        }
+        compose.onNodeWithText("Enter").performClick()
+        compose.runOnIdle {
+            assertEquals("Enter", model.lastEvent)
+            model.remap(1, remoteKey(0x2B, 0x2B))
+            model.extraControls = false
+            model.saveSettings()
+        }
+    }
 }

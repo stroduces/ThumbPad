@@ -1,4 +1,5 @@
 pub mod input;
+mod keyboard;
 pub mod protocol;
 #[cfg(any(target_os = "macos", test))]
 mod scroll;
@@ -461,7 +462,9 @@ impl Receiver {
         let _active = Active(self);
         *self.connected.lock().unwrap() = Some(h.name);
         let epoch = self.epoch.load(Ordering::SeqCst);
-        let reply = serde_json::to_vec(&serde_json::json!({"ok":true,"token":token,"version":1}))?;
+        let reply = serde_json::to_vec(
+            &serde_json::json!({"ok":true,"token":token,"version":1,"key_remapping":true}),
+        )?;
         timeout(Duration::from_secs(3), async {
             s.write_all(&(reply.len() as u16).to_le_bytes()).await?;
             s.write_all(&reply).await

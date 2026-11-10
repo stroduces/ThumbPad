@@ -12,7 +12,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
 
-class Transport(private val scope:CoroutineScope,private val storage:Storage,private val status:(String,Boolean)->Unit,private val paired:(Computer)->Unit,private val rtt:(Long)->Unit) {
+class Transport(private val scope:CoroutineScope,private val storage:Storage,private val status:(String,Boolean)->Unit,private val paired:(Computer)->Unit,private val rtt:(Long)->Unit,private val keyRemapping:(Boolean)->Unit) {
     private val queue=EventQueue()
     private val socketLock=Any()
     private var generation=0L
@@ -67,7 +67,13 @@ class Transport(private val scope:CoroutineScope,private val storage:Storage,pri
             val reply=ByteArray(n);input.readFully(reply);val response=JSONObject(String(reply));require(response.getBoolean("ok"))
             val next=if(response.has("token")&&!response.isNull("token"))c.copy(token=response.getString("token"))else c
             ready(next)
-            withContext(Dispatchers.Main){paired(next);status("Connected · ${c.name}",true)}
+            withContext(Dispatchers.Main){
+                ensureActive()
+                if (!current(expected)) throw CancellationException("Computer switched")
+                keyRemapping(response.optBoolean("key_remapping"))
+                paired(next)
+                status("Connected · ${c.name}",true)
+            }
             synchronized(socketLock){if(generation!=expected)throw CancellationException("Computer switched");connected=true};lastAck=now();s.soTimeout=4000
             val reader=launch(Dispatchers.IO){val ack=ByteArray(32);while(isActive){input.readFully(ack);require(ack[0]=='T'.code.toByte()&&ack[3]==5.toByte());lastAck=now();val stamp=java.nio.ByteBuffer.wrap(ack).order(java.nio.ByteOrder.LITTLE_ENDIAN).getLong(12);withContext(Dispatchers.Main){rtt((now()-stamp)/1000)}}}
             try {var seq=0L;var beat=0L

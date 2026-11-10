@@ -38,13 +38,16 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     var batteryMode by mutableStateOf(storage.prefs.getBoolean("battery",false))
     var horizontal by mutableStateOf(storage.prefs.getBoolean("horizontal",false))
     var extraControls by mutableStateOf(storage.prefs.getBoolean("extras",false))
+    internal var tabKey by mutableStateOf(remoteKey(storage.prefs.getInt("tab_key", 0x2B), 0x2B))
+    internal var enterKey by mutableStateOf(remoteKey(storage.prefs.getInt("enter_key", 0x28), 0x28))
+    var remappingSupported by mutableStateOf(false);private set
     var navigationMediaControls by mutableStateOf(storage.prefs.getBoolean("navigation_media_controls",false))
     var discovered=mutableStateListOf<String>();private set
     private var foreground=false
     private var resumeWanted=false
     private val transport=Transport(viewModelScope,storage,{text,up->status=text;connected=up;if(!up)drag=false},{c->
         selected=c;computers=(computers.filterNot{it.fp==c.fp}+c);storage.save(computers);pairingCode=""
-    },{rtt=it})
+    },{rtt=it},{remappingSupported=it})
     private val discovery=Discovery(app){name,host,port->
         val value="$name · $host:$port";android.os.Handler(android.os.Looper.getMainLooper()).post{if(!discovered.contains(value))discovered.add(value)}
         // Discovery never establishes trust; only refresh an already pinned host after DHCP change.
@@ -74,6 +77,26 @@ class RemoteModel(app:Application):AndroidViewModel(app) {
     fun demo(){disconnect();demo=true;status="Demo · stays on this phone";events=0;demoX=0f;demoY=0f}
     fun emit(kind:Int,a:Float=0f,b:Float=0f){if(demo){events++;lastEvent=when(kind){1->{demoX+=a;demoY+=b;"Cursor ${demoX.toInt()}, ${demoY.toInt()}"};2->"${if(a==0f)"Left" else "Right"} ${if(b==1f)"down" else "up"}";3->"Scroll ${a.toInt()}, ${b.toInt()}";4->"Shortcut ${a.toInt()}";else->"Released"}}else transport.send(kind,a,b)}
     fun click(button:Int){if(button==0&&drag){lock();return};emit(2,button.toFloat(),1f);emit(2,button.toFloat(),0f)}
+    internal fun sendKey(key: RemoteKey, action: Int = 0) {
+        val legacy = key.legacyShortcut
+        if (demo) {
+            events++
+            lastEvent = key.label + when {
+                action > 0 -> " down"
+                action < 0 -> " up"
+                else -> ""
+            }
+        } else if (action == 0 && legacy != null) {
+            emit(4, legacy.toFloat())
+        } else if (remappingSupported) {
+            emit(8, key.usage.toFloat(), action.toFloat())
+        }
+    }
+
+    internal fun remap(slot: Int, key: RemoteKey) {
+        if (slot == 1) tabKey = key else enterKey = key
+        storage.prefs.edit().putInt(if (slot == 1) "tab_key" else "enter_key", key.usage).apply()
+    }
     fun lock(){if(!connected&&!demo)return;drag=!drag;emit(2,0f,if(drag)1f else 0f)}
     fun move(dx:Float,dy:Float,dt:Float){val (x,y)=pointerDelta(dx,dy,dt,sensitivity,acceleration,precise);emit(1,x,y)}
     fun wheelScroll(delta:Float){if((connected||demo)&&delta.isFinite()&&delta!=0f)emit(3,0f,scrollDelta(delta,scrollSpeed,natural))}

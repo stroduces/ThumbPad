@@ -18,7 +18,7 @@ try{
  const command=`am instrument -w -e pairingUri '${uri.toString()}' app.thumbpad.test/androidx.test.runner.AndroidJUnitRunner`;
  const {stdout,stderr}=await run(adb,['shell',command],{timeout:120000,maxBuffer:2*1024*1024});
  fs.mkdirSync('dist/reports',{recursive:true});fs.writeFileSync('dist/reports/android-instrumentation.txt',stdout+stderr);console.log(stdout);
- if(/FAILURES|INSTRUMENTATION_FAILED|Process crashed|shortMsg=/.test(stdout)||!stdout.includes('OK (3 tests)'))throw Error('Android interaction/integration tests did not pass');
+ if(/FAILURES|INSTRUMENTATION_FAILED|Process crashed|shortMsg=/.test(stdout)||!stdout.includes('OK (4 tests)'))throw Error('Android interaction/integration tests did not pass');
  fs.mkdirSync('docs/screenshots',{recursive:true});
  for(const name of ['android-demo.png','android-connected.png','android-scroll-wheel.png'])await run(adb,['pull',`/sdcard/Android/data/app.thumbpad/files/${name}`,`docs/screenshots/${name}`]);
  console.log('PASS: Android install, native Compose interactions, optional scroll wheel, pinned TLS pairing, clicks, drag, reconnect; screenshots saved. Host dispatcher was dry.');

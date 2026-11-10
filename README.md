@@ -2,7 +2,7 @@
 
 A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + Jetpack Compose on your phone; Tauri 2 + a Rust TLS receiver on your desk. No account, browser tab, relay, clipboard sharing, telemetry, or internet dependency after installation.
 
-**Development builds: desktop 0.1.1, Android 0.1.4.** Desktop 0.1.1 corrects the macOS scroll-event call that could cause jumps to the bottom of a page on Apple Silicon. Android now uses a compact connection control and a larger trackpad, with the introductory headings and visible trackpad text removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
+**Development builds: desktop 0.1.2, Android 0.1.5.** Desktop 0.1.1 corrected the macOS scroll-event call that could cause jumps to the bottom of a page on Apple Silicon. Android now uses a compact connection control and a larger trackpad, with the introductory headings and visible trackpad text removed. Read [the validation record](docs/VALIDATION.md) for what was actually built and tested. Source availability does not establish hardware validation. The current Android target is API 36, minSdk 26; API 37 was not offered by this machine's SDK repository at build time. No signing credentials were supplied.
 
 ## Install
 
@@ -17,6 +17,8 @@ A one-handed Android trackpad with a native Windows / macOS companion. Kotlin + 
 **Optional scroll wheel (Android 0.1.1):** open Settings (⚙), enable **Show scroll wheel**, then **Save & close**. Turn the ring with your thumb to scroll; lift and start another turn whenever needed. The wheel follows the left-handed layout and uses the existing scroll speed and natural-direction settings. Tapping its centre never clicks or moves the pointer. Screen readers also expose scroll-up/down actions. The desktop companion does not need an update.
 
 **Optional Back / Play / Forward buttons (Android 0.1.4):** these are hidden by default to leave more space for the trackpad. Enable **Settings → Show Back / Play / Forward → Save & close** to show the row. Your choice is saved between launches. This setting is independent of the extra volume/keyboard controls.
+
+**Remappable Tab and Enter (Android 0.1.5 and desktop 0.1.2):** enable **Settings → Extra volume / keyboard controls**, then select **Tab button** or **Enter button** and choose a key. Choose **Right Option / Alt** for the Mac’s Right Option key. Modifier keys stay down while you hold the button. Choose Tab or Enter again to restore the original key.
 
 ### Windows 10/11, x64
 1. Run `dist/ThumbPad-Windows-Setup.exe`. This is a per-user NSIS installer with an uninstaller. It is unsigned; Windows may show publisher/reputation prompts. Verify the checksum against your build before deciding whether to install.
